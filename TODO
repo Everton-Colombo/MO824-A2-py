@@ -1,3 +1,4 @@
 - Implementar FixSolution e arrumar funções de search para não quebrar cobertura, pois estas receberão solução já válidas
 - Implementar first improve (local search)
 - Implementar heurísticas de construção
+- Implementar limite de tempo
