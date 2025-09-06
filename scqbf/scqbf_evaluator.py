@@ -21,6 +21,24 @@ class ScQbfEvaluator:
         solution._last_objfun_val = total
         return total
 
+    def _evaluate_element_contribution(self, elem: int, solution: ScQbfSolution) -> float:
+        """
+        Calculate the contribution of an element given a list of other elements it interacts with.
+        This includes both the diagonal term and interactions with other elements.
+        """
+        A = self.problem_instance.A
+        total = 0.0
+        
+        # Add interactions with other elements
+        for j in solution.elements:
+            if j != elem:  # Avoid self-interaction in the loop
+                total += A[elem][j] + A[j][elem]
+        
+        # Add diagonal element contribution
+        total += A[elem][elem]
+        
+        return total
+
     def evaluate_insertion_delta(self, elem: int, solution: ScQbfSolution) -> float:
         if self.problem_instance is None:
             raise ValueError("Problem instance is not initialized")
@@ -28,18 +46,8 @@ class ScQbfEvaluator:
         if elem in solution.elements:
             return 0.0
         
-        A = self.problem_instance.A
-        total = 0.0
-        
-        # Add contribution from interactions with existing elements in solution
-        for j in solution.elements:
-            total += A[elem][j] + A[j][elem]
-        
-        # Add diagonal element contribution
-        total += A[elem][elem]
-        
-        return total
-    
+        return self._evaluate_element_contribution(elem, solution)
+
     def evaluate_removal_delta(self, elem: int, solution: ScQbfSolution) -> float:
         if self.problem_instance is None:
             raise ValueError("Problem instance is not initialized")
@@ -47,18 +55,8 @@ class ScQbfEvaluator:
         if elem not in solution.elements:
             return 0.0
         
-        A = self.problem_instance.A
-        total = 0.0
-        
-        # Calculate negative contribution from interactions with other elements in solution
-        for j in solution.elements:
-            if j != elem:
-                total += A[elem][j] + A[j][elem]
-        
-        # Add diagonal element contribution
-        total += A[elem][elem]
-        
-        return -total
+        return -self._evaluate_element_contribution(elem, solution)
+
     
     def evaluate_exchange_delta(self, elem_in: int, elem_out: int, solution: ScQbfSolution) -> float:
         if self.problem_instance is None:
@@ -75,19 +73,10 @@ class ScQbfEvaluator:
         
         A = self.problem_instance.A
         total = 0.0
-        
-        # Add contribution from inserting elem_in
-        for j in solution.elements:
-            if j != elem_out:
-                total += A[elem_in][j] + A[j][elem_in]
-        total += A[elem_in][elem_in]
-        
-        # Subtract contribution from removing elem_out
-        for j in solution.elements:
-            if j != elem_out:
-                total -= A[elem_out][j] + A[j][elem_out]
-        total -= A[elem_out][elem_out]
-        
+
+        total += self._evaluate_element_contribution(elem_in, solution)
+        total -= self._evaluate_element_contribution(elem_out, solution)
+
         # Subtract interaction between elem_in and elem_out
         total -= (A[elem_in][elem_out] + A[elem_out][elem_in])
         
