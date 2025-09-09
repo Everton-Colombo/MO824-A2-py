@@ -97,7 +97,7 @@ class ScQbfGrasp:
             return self._constructive_heuristic_traditional(alpha)
 
         elif self.config["construction_method"] == "random_plus_greedy":
-            alpha, p = self.config["construction_args"] if len(self.config.get("construction_args", [])) > 0 else (0.5, 0.5)
+            alpha, p = self.config["construction_args"] if len(self.config.get("construction_args", [])) > 0 else (0.5, min(3, self.instance.n))
             return self._constructive_heuristic_random_plus_greedy(alpha, p)
         
         elif self.config["construction_method"] == "sampled_greedy":
@@ -145,69 +145,31 @@ class ScQbfGrasp:
         return constructed_sol
 
     def _constructive_heuristic_random_plus_greedy(self, alpha: float, p: float):
-        if p < 0:
-            p = 0
-        if p > 1:
-            p = 1
         constructed_sol = ScQbfSolution([])
-        cl = [i for i in range(self.instance.n)] # makeCl
+        cl = [i for i in range(self.instance.n)] # make_cl
 
-        prev_objfun = float("-inf")
-        target_cover = math.floor(p * self.instance.n)
-        while self.evaluator.evaluate_coverage(constructed_sol) < target_cover:
-        
-            rcl = []
-            min_delta = math.inf
-            max_delta = -math.inf
+        # Select first p elements at random
+        for _ in range(p):
             cl = [i for i in cl if i not in constructed_sol.elements] # update_cl
-            
-            
-            prev_objfun = self.evaluator.evaluate_objfun(constructed_sol)
-            
-            for candidate_element in cl:
-                delta_objfun = self.evaluator.evaluate_insertion_delta(candidate_element, constructed_sol)
-                if delta_objfun < min_delta:
-                    min_delta = delta_objfun
-                if delta_objfun > max_delta:
-                    max_delta = delta_objfun
-            
-            # This is where we define the RCL.
-            for candidate_element in cl:
-                delta_objfun = self.evaluator.evaluate_insertion_delta(candidate_element, constructed_sol)
-                if delta_objfun >= (min_delta + alpha * (max_delta - min_delta)):
-
-                    ## ONLY add to rcl if coverage increases
-                    if self.evaluator.evaluate_insertion_delta_coverage(candidate_element, constructed_sol) > 0:
-                        rcl.append(candidate_element)
-
-            # Randomly select an element from the RCL to add to the solution
-            if rcl:
-                chosen_element = random.choice(rcl)
-                constructed_sol.elements.append(chosen_element)
-            
-            if not (prev_objfun < self.evaluator.evaluate_objfun(constructed_sol)):
-                break
-
+            constructed_sol.elements.append(random.choice(cl))
+        
+        # Continue with a purely greedy approach
         prev_objfun = float("-inf")
-
         while(prev_objfun < self.evaluator.evaluate_objfun(constructed_sol)): # Constructive Stop Criteria
             cl = [i for i in cl if i not in constructed_sol.elements] # update_cl
-            
             
             prev_objfun = self.evaluator.evaluate_objfun(constructed_sol)
             best_delta = float("-inf")
             best_cand_in = -1
-            # This is where we define the RCL.
+            
             for candidate_element in cl:
+                # Only consider candidates that improve coverage and objective function
                 delta_objfun = self.evaluator.evaluate_insertion_delta(candidate_element, constructed_sol)
-                ## ONLY add to rcl if coverage increases
-                if self.evaluator.evaluate_insertion_delta_coverage(candidate_element, constructed_sol) > 0 \
-                and delta_objfun > best_delta \
-                and prev_objfun < self.evaluator.evaluate_objfun(constructed_sol):
+                if delta_objfun > best_delta and self.evaluator.evaluate_insertion_delta_coverage(candidate_element, constructed_sol) > 0:
                     best_cand_in = candidate_element
                     best_delta = delta_objfun
             
-            if (best_cand_in >= 0):
+            if (best_delta > 0):
                 constructed_sol.elements.append(best_cand_in)
 
         return constructed_sol
