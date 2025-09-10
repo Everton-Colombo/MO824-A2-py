@@ -97,7 +97,7 @@ class ScQbfGrasp:
             return self._constructive_heuristic_traditional(alpha)
 
         elif self.config["construction_method"] == "random_plus_greedy":
-            alpha, p = self.config["construction_args"] if len(self.config.get("construction_args", [])) > 0 else (0.5, min(3, self.instance.n))
+            alpha, p = self.config["construction_args"] if len(self.config.get("construction_args", [])) > 0 else (0.5, 0.2)
             return self._constructive_heuristic_random_plus_greedy(alpha, p)
         
         elif self.config["construction_method"] == "sampled_greedy":
@@ -111,15 +111,12 @@ class ScQbfGrasp:
         constructed_sol = ScQbfSolution([])
         cl = [i for i in range(self.instance.n)] # makeCl
 
-        prev_objfun = float("-inf")
-        while(prev_objfun < self.evaluator.evaluate_objfun(constructed_sol)): # Constructive Stop Criteria
+        while not self.evaluator.is_solution_valid(constructed_sol): # Constructive Stop Criteria
             # traditional constructive heuristic
             rcl = []
             min_delta = math.inf
             max_delta = -math.inf
             cl = [i for i in cl if i not in constructed_sol.elements] # update_cl
-            
-            prev_objfun = self.evaluator.evaluate_objfun(constructed_sol)
             
             for candidate_element in cl:
                 delta_objfun = self.evaluator.evaluate_insertion_delta(candidate_element, constructed_sol)
@@ -141,6 +138,8 @@ class ScQbfGrasp:
             if rcl:
                 chosen_element = random.choice(rcl)
                 constructed_sol.elements.append(chosen_element)
+            else:
+                break
 
         return constructed_sol
 
@@ -149,16 +148,14 @@ class ScQbfGrasp:
         cl = [i for i in range(self.instance.n)] # make_cl
 
         # Select first p elements at random
-        for _ in range(p):
+        for _ in range(int(p * self.instance.n)):
             cl = [i for i in cl if i not in constructed_sol.elements] # update_cl
             constructed_sol.elements.append(random.choice(cl))
         
         # Continue with a purely greedy approach
-        prev_objfun = float("-inf")
-        while(prev_objfun < self.evaluator.evaluate_objfun(constructed_sol)): # Constructive Stop Criteria
+        while not self.evaluator.is_solution_valid(constructed_sol): # Constructive Stop Criteria
             cl = [i for i in cl if i not in constructed_sol.elements] # update_cl
             
-            prev_objfun = self.evaluator.evaluate_objfun(constructed_sol)
             best_delta = float("-inf")
             best_cand_in = -1
             
@@ -169,8 +166,10 @@ class ScQbfGrasp:
                     best_cand_in = candidate_element
                     best_delta = delta_objfun
             
-            if (best_delta > 0):
+            if best_delta > 0:
                 constructed_sol.elements.append(best_cand_in)
+            else:
+                break
 
         return constructed_sol
     
@@ -178,10 +177,8 @@ class ScQbfGrasp:
         constructed_sol = ScQbfSolution([])
         cl = [i for i in range(self.instance.n)] # makeCl
 
-        prev_objfun = float("-inf")
-        while(prev_objfun < self.evaluator.evaluate_objfun(constructed_sol)): # Constructive Stop Criteria
+        while not self.evaluator.is_solution_valid(constructed_sol): # Constructive Stop Criteria
             cl = [i for i in cl if i not in constructed_sol.elements] # update_cl
-            prev_objfun = self.evaluator.evaluate_objfun(constructed_sol)
             
             rcl = random.sample(cl, min(len(cl), math.floor(p * self.instance.n)))
             best_delta = float("-inf")
